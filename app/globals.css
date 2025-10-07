@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light dark; }
+body { @apply bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100; }
+a { @apply underline; }
+input, select { @apply border rounded-xl px-3 py-2 outline-none; }
+button { @apply rounded-xl px-4 py-2 border; }
+.card { @apply rounded-2xl border p-6 shadow-sm; }
