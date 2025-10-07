@@ -3,7 +3,15 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-type User = { name: string; email: string; country: string; city: string; phone_number: string; role: '1'|'2'; password: string };
+type User = {
+  name: string;
+  email: string;
+  country: string;
+  city: string;
+  phone_number: string;
+  role: '1' | '2';
+  password: string;
+};
 
 function getUsers(): User[] {
   if (typeof window === 'undefined') return [];
@@ -15,18 +23,24 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const s = localStorage.getItem('hv_session');
-    if (!s) {
-      window.location.href = '/';
-      return;
+    // middleware already protects this route via hv_session cookie
+    // we still read localStorage to show the user's details in the UI
+    try {
+      const s = localStorage.getItem('hv_session');
+      if (!s) return; // middleware should have redirected if not authed
+      const { email } = JSON.parse(s);
+      const u = getUsers().find(u => u.email === email) || null;
+      setUser(u);
+    } catch {
+      // ignore parse errors
     }
-    const { email } = JSON.parse(s);
-    const u = getUsers().find(u => u.email === email) || null;
-    setUser(u);
   }, []);
 
-  function logout() {
-    localStorage.removeItem('hv_session');
+  async function logout() {
+    try {
+      await fetch('/api/session', { method: 'DELETE' }); // clears cookie
+    } catch {}
+    localStorage.removeItem('hv_session'); // demo-only session data
     window.location.href = '/';
   }
 

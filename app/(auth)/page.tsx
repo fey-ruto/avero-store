@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-type Role = '1' | '2'; // 1=Admin, 2=Customer (from your PHP)
+type Role = '1' | '2'; // 1 = Admin, 2 = Customer
 
 type User = {
   name: string;
@@ -14,6 +14,9 @@ type User = {
   phone_number: string;
   role: Role;
 };
+
+const isEmail = (s: string) => /\S+@\S+\.\S+/.test(s);
+const strongPass = (s: string) => s.length >= 6;
 
 function getUsers(): User[] {
   if (typeof window === 'undefined') return [];
@@ -44,37 +47,75 @@ export default function AuthPage() {
     setMessage('');
   }, [mode]);
 
-  function handleRegister(e: React.FormEvent) {
+  async function establishSessionCookie(email: string) {
+    // sets hv_session http-only cookie via our API
+    await fetch('/api/session', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
+
     if (!name || !email || !password || !country || !city || !phone) {
       setMessage('Please fill all fields.');
       return;
     }
+    if (!isEmail(email)) {
+      setMessage('Enter a valid email.');
+      return;
+    }
+    if (!strongPass(password)) {
+      setMessage('Password must be at least 6 characters.');
+      return;
+    }
+
     const users = getUsers();
     if (users.find(u => u.email === email)) {
       setMessage('Email already registered.');
       return;
     }
+
     const user: User = { name, email, password, country, city, phone_number: phone, role };
     users.push(user);
     saveUsers(users);
+
+    // Keep demo-friendly localStorage session (optional)
     localStorage.setItem('hv_session', JSON.stringify({ email }));
+
+    // NEW: set secure cookie session for route protection
+    try { await establishSessionCookie(email); } catch {}
+
     window.location.href = '/dashboard';
   }
 
-  function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+
     if (!email || !password) {
       setMessage('Please fill all fields.');
       return;
     }
+    if (!isEmail(email)) {
+      setMessage('Enter a valid email.');
+      return;
+    }
+
     const users = getUsers();
     const found = users.find(u => u.email === email && u.password === password);
     if (!found) {
       setMessage('Invalid email or password.');
       return;
     }
+
+    // Keep demo-friendly localStorage session (optional)
     localStorage.setItem('hv_session', JSON.stringify({ email }));
+
+    // NEW: set secure cookie session for route protection
+    try { await establishSessionCookie(email); } catch {}
+
     window.location.href = '/dashboard';
   }
 
@@ -82,26 +123,30 @@ export default function AuthPage() {
     <main className="space-y-6">
       <h1 className="text-2xl font-semibold">Hustle Village</h1>
       <div className="flex gap-2">
-        <button onClick={() => setMode('register')} className={mode==='register' ? 'border-2' : ''}>Register</button>
-        <button onClick={() => setMode('login')} className={mode==='login' ? 'border-2' : ''}>Login</button>
+        <button onClick={() => setMode('register')} className={mode === 'register' ? 'border-2' : ''}>
+          Register
+        </button>
+        <button onClick={() => setMode('login')} className={mode === 'login' ? 'border-2' : ''}>
+          Login
+        </button>
       </div>
 
       {mode === 'register' ? (
         <form onSubmit={handleRegister} className="card space-y-3">
           {message && <p className="text-red-600">{message}</p>}
           <div className="grid grid-cols-1 gap-3">
-            <input placeholder="Full name" value={name} onChange={e=>setName(e.target.value)} />
-            <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} />
-            <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} />
-            <input placeholder="Country" value={country} onChange={e=>setCountry(e.target.value)} />
-            <input placeholder="City" value={city} onChange={e=>setCity(e.target.value)} />
-            <input placeholder="Phone number" value={phone} onChange={e=>setPhone(e.target.value)} />
+            <input placeholder="Full name" value={name} onChange={e => setName(e.target.value)} />
+            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
+            <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
+            <input placeholder="Country" value={country} onChange={e => setCountry(e.target.value)} />
+            <input placeholder="City" value={city} onChange={e => setCity(e.target.value)} />
+            <input placeholder="Phone number" value={phone} onChange={e => setPhone(e.target.value)} />
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-2">
-                <input type="radio" name="role" checked={role==='1'} onChange={()=>setRole('1')} /> Admin
+                <input type="radio" name="role" checked={role === '1'} onChange={() => setRole('1')} /> Admin
               </label>
               <label className="flex items-center gap-2">
-                <input type="radio" name="role" checked={role==='2'} onChange={()=>setRole('2')} /> Customer
+                <input type="radio" name="role" checked={role === '2'} onChange={() => setRole('2')} /> Customer
               </label>
             </div>
           </div>
@@ -110,8 +155,8 @@ export default function AuthPage() {
       ) : (
         <form onSubmit={handleLogin} className="card space-y-3">
           {message && <p className="text-red-600">{message}</p>}
-          <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} />
-          <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} />
+          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
+          <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
           <button type="submit">Log in</button>
         </form>
       )}
